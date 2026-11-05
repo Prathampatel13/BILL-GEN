@@ -18,7 +18,9 @@ import {
   Receipt,
   Calculator,
   Landmark,
-  MapPin
+  MapPin,
+  Plus,
+  Trash2
 } from 'lucide-react';
 import { PAYMENT_METHODS } from '../data/defaultMakes';
 import { getTodayDateString, formatCurrency, calculateBillTotals } from '../utils/formatters';
@@ -63,22 +65,36 @@ export default function BillForm({
       }];
 
   // Handle updates to specific line item
-  // Automatically calculates Amount = Total Weight * Rate per KG!
+  // Automatically calculates Amount:
+  // - If Total Weight > 0 & Rate > 0 => Amount = Weight * Rate
+  // - If Total Weight is 'mm' (or empty) & Receipts > 0 & Rate > 0 => Amount = Receipts * Rate
   const handleUpdateItem = (index, field, value) => {
     const updated = [...items];
     const currentItem = { ...updated[index], [field]: value };
 
-    // When totalWeight or ratePerKg changes, automatically compute amount if both are > 0!
-    // When weight or rate is empty (or 0/cleared), amount is also empty.
-    if (field === 'totalWeight' || field === 'ratePerKg') {
-      const weightVal = field === 'totalWeight' ? value : currentItem.totalWeight;
-      const rateVal = field === 'ratePerKg' ? value : currentItem.ratePerKg;
+    const weightVal = field === 'totalWeight' ? value : currentItem.totalWeight;
+    const rateVal = field === 'ratePerKg' ? value : currentItem.ratePerKg;
+    const receiptsVal = field === 'totalReceipts' ? value : currentItem.totalReceipts;
+
+    // Automatically calculate Amount when weight, rate, or receipts are modified
+    if (field === 'totalWeight' || field === 'ratePerKg' || field === 'totalReceipts') {
       const w = parseFloat(weightVal);
       const r = parseFloat(rateVal);
-      if (!isNaN(w) && !isNaN(r) && w > 0 && r > 0) {
-        currentItem.amount = (w * r).toFixed(2);
-      } else {
-        currentItem.amount = '';
+      const rc = parseFloat(receiptsVal);
+      const isMm = /^(mm|min|minimum)$/i.test(String(weightVal || '').trim());
+
+      if (isMm && !isNaN(rc) && !isNaN(r) && rc > 0 && r > 0) {
+        // Minimum charge: Total Receipts * Minimum Rate (e.g. 2 * 200 = 400)
+        const res = rc * r;
+        currentItem.amount = res % 1 === 0 ? res.toFixed(0) : res.toFixed(2);
+      } else if (!isNaN(w) && !isNaN(r) && w > 0 && r > 0) {
+        // Standard: Weight * Rate (e.g. 857 * 10 = 8570)
+        const res = w * r;
+        currentItem.amount = res % 1 === 0 ? res.toFixed(0) : res.toFixed(2);
+      } else if (!weightVal || !rateVal) {
+        if (!isMm) {
+          currentItem.amount = '';
+        }
       }
     }
 
@@ -97,6 +113,38 @@ export default function BillForm({
       ratePerKg: first.ratePerKg !== undefined ? first.ratePerKg : '',
       amount: first.amount || '',
       quantity: first.quantity || 1
+    });
+  };
+
+  const handleAddItem = (defaultWeight = 'mm') => {
+    const newItem = {
+      id: `item-${Date.now()}-${items.length + 1}`,
+      dateRange: '',
+      make: 'Freight Transport',
+      modelOrItem: 'Parcel Cargo',
+      serialOrRef: '',
+      totalReceipts: '',
+      totalWeight: defaultWeight,
+      ratePerKg: '',
+      amount: '',
+      quantity: 1,
+      notes: ''
+    };
+    const updated = [...items, newItem];
+    onChange({ ...bill, items: updated });
+  };
+
+  const handleRemoveItem = (index) => {
+    if (items.length <= 1) return;
+    const updated = items.filter((_, idx) => idx !== index);
+    const first = updated[0] || {};
+    onChange({
+      ...bill,
+      items: updated,
+      totalReceipts: first.totalReceipts !== undefined ? first.totalReceipts : '',
+      totalWeight: first.totalWeight !== undefined ? first.totalWeight : '',
+      ratePerKg: first.ratePerKg !== undefined ? first.ratePerKg : '',
+      amount: first.amount || ''
     });
   };
 
@@ -224,163 +272,235 @@ export default function BillForm({
           </span>
         </div>
 
-        {/* Freight Calculation Fields */}
-        {(() => {
-          const firstItem = items[0] || {};
-          return (
-            <div className="p-4 bg-slate-50/70 dark:bg-[#0f172a]/70 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3 transition-colors">
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {/* 1. Total Receipt */}
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
-                    <Receipt className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                    Total Receipt
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    step="1"
-                    placeholder=""
-                    value={firstItem.totalReceipts ?? ''}
-                    onChange={(e) => handleUpdateItem(0, 'totalReceipts', e.target.value)}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    className="w-full px-3 py-2 text-xs font-semibold text-slate-800 dark:text-slate-100 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 bg-white dark:bg-[#1e293b] font-mono"
-                  />
-                  <span className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 block">LR count / slips</span>
-                </div>
+        {/* Freight Calculation Fields (Supports Row 1 Weight Freight + Row 2 Minimum / mm Charge) */}
+        <div className="space-y-3">
+          {items.map((item, index) => {
+            const isMm = String(item.totalWeight || '').trim().toLowerCase() === 'mm';
+            const weightNum = parseFloat(item.totalWeight);
+            const rateNum = parseFloat(item.ratePerKg);
+            const rcNum = parseFloat(item.totalReceipts);
+            const hasWeightCalc = !isNaN(weightNum) && !isNaN(rateNum) && weightNum > 0 && rateNum > 0;
+            const hasMmCalc = isMm && !isNaN(rcNum) && !isNaN(rateNum) && rcNum > 0 && rateNum > 0;
 
-                {/* 2. Total Weight (KG) */}
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
-                    <Scale className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                    Total Weight (KG)
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      min="0"
-                      step="any"
-                      placeholder=""
-                      value={firstItem.totalWeight ?? ''}
-                      onChange={(e) => handleUpdateItem(0, 'totalWeight', e.target.value)}
-                      onWheel={(e) => e.currentTarget.blur()}
-                      className="w-full pl-3 pr-8 py-2 text-xs font-bold text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 bg-white dark:bg-[#1e293b] font-mono"
-                    />
-                    <span className="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none text-[11px] font-semibold text-slate-400 dark:text-slate-500">
-                      KG
+            return (
+              <div
+                key={item.id || index}
+                className="p-4 bg-slate-50/70 dark:bg-[#0f172a]/70 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3 transition-colors relative"
+              >
+                {/* Row Header */}
+                <div className="flex items-center justify-between pb-2 border-b border-slate-200/60 dark:border-slate-800">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                      Line {index + 1} {index === 0 ? '(Main Freight)' : '(Minimum / Extra Line)'}
                     </span>
-                  </div>
-                  <span className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 block">In Kilograms</span>
-                </div>
-
-                {/* 3. Rate per KG (₹) */}
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
-                    <IndianRupee className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                    Rate per KG (₹)
-                  </label>
-                  <div className="relative">
-                    <span className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-xs font-semibold text-slate-400 dark:text-slate-500 font-mono">
-                      {currencySymbol}
-                    </span>
-                    <input
-                      type="number"
-                      min="0"
-                      step="any"
-                      placeholder=""
-                      value={firstItem.ratePerKg ?? ''}
-                      onChange={(e) => handleUpdateItem(0, 'ratePerKg', e.target.value)}
-                      onWheel={(e) => e.currentTarget.blur()}
-                      className="w-full pl-7 pr-3 py-2 text-xs font-bold text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 bg-white dark:bg-[#1e293b] font-mono"
-                    />
-                  </div>
-                  <span className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 block">Price per KG</span>
-                </div>
-
-                {/* 4. Amount (₹) - Auto or Direct */}
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
-                    <span className="flex items-center gap-1">
-                      <Calculator className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                      Amount (₹)
-                    </span>
-                    <span className="text-[9px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 px-1.5 py-0.2 rounded-md">
-                      ⚡ Auto / Direct
-                    </span>
-                  </label>
-                  <div className="relative">
-                    <span className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-xs font-bold text-emerald-700 dark:text-emerald-400 font-mono">
-                      {currencySymbol}
-                    </span>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      placeholder=""
-                      value={firstItem.amount ?? ''}
-                      onChange={(e) => handleUpdateItem(0, 'amount', e.target.value)}
-                      onWheel={(e) => e.currentTarget.blur()}
-                      className="w-full pl-7 pr-3 py-2 text-xs font-extrabold text-emerald-700 dark:text-emerald-300 bg-emerald-50/50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/80 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-mono"
-                    />
-                  </div>
-                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium mt-0.5 block">Auto (Weight × Rate) or Direct</span>
-                </div>
-              </div>
-
-              {/* Pricing & Formula Visual Banner */}
-              <div className="flex items-center justify-between px-3 py-1.5 bg-emerald-50/70 dark:bg-emerald-950/30 rounded-xl border border-emerald-100/80 dark:border-emerald-900/40 text-xs">
-                <div className="flex items-center gap-1.5 text-emerald-900 dark:text-emerald-200 text-[11px]">
-                  {parseFloat(firstItem.totalWeight) > 0 && parseFloat(firstItem.ratePerKg) > 0 ? (
-                    <>
-                      <span className="font-semibold text-emerald-700 dark:text-emerald-400">Formula:</span>
-                      <span className="font-mono">
-                        {firstItem.totalWeight} KG × {currencySymbol}{firstItem.ratePerKg}/KG ={' '}
-                        <strong className="text-emerald-950 dark:text-emerald-100 font-bold">
-                          {currencySymbol}{firstItem.amount || '0.00'}
-                        </strong>
+                    {isMm && (
+                      <span className="text-[10px] font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 px-2 py-0.5 rounded-full border border-amber-200 dark:border-amber-800">
+                        ⚡ mm Minimum Charge
                       </span>
-                    </>
-                  ) : parseFloat(firstItem.amount) > 0 ? (
-                    <>
-                      <span className="font-semibold text-emerald-700 dark:text-emerald-400">Bill Amount:</span>
-                      <span className="font-mono">
-                        Direct Amount ={' '}
-                        <strong className="text-emerald-950 dark:text-emerald-100 font-bold">
-                          {currencySymbol}{firstItem.amount}
-                        </strong>{' '}
-                        <span className="text-[10px] text-slate-500 dark:text-slate-400 font-sans">(Without Weight & Rate)</span>
-                      </span>
-                    </>
-                  ) : (
-                    <span className="text-slate-500 dark:text-slate-400 text-[11px]">
-                      Enter Total Weight & Rate, or enter direct Amount
-                    </span>
+                    )}
+                  </div>
+
+                  {items.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveItem(index)}
+                      className="text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 p-1 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer flex items-center gap-1 text-[11px]"
+                      title="Remove this freight line"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Remove</span>
+                    </button>
                   )}
                 </div>
-                <span className="text-[10px] font-medium text-emerald-700 dark:text-emerald-300 bg-emerald-100/60 dark:bg-emerald-900/50 px-2 py-0.5 rounded-md flex items-center gap-1">
-                  {parseFloat(firstItem.totalWeight) > 0 && parseFloat(firstItem.ratePerKg) > 0
-                    ? '✓ Weight × Rate'
-                    : parseFloat(firstItem.amount) > 0
-                    ? '✓ Direct Amount'
-                    : 'Auto / Direct'}
-                </span>
-              </div>
 
-              {/* Print Column Toggle */}
-              <div className="flex items-center justify-end pt-0.5">
-                <label className="text-[11px] font-medium text-slate-600 dark:text-slate-400 flex items-center gap-1.5 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={bill.printWeightRate !== false}
-                    onChange={(e) => handleChange('printWeightRate', e.target.checked)}
-                    className="w-3.5 h-3.5 text-emerald-600 rounded border-slate-300 dark:border-slate-700 dark:bg-slate-800 focus:ring-emerald-500 cursor-pointer"
-                  />
-                  <span>Print Weight & Rate on Bill</span>
-                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {/* 1. Total Receipt */}
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
+                      <Receipt className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                      Total Receipt
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      step="1"
+                      placeholder="e.g. 8"
+                      value={item.totalReceipts ?? ''}
+                      onChange={(e) => handleUpdateItem(index, 'totalReceipts', e.target.value)}
+                      onWheel={(e) => e.currentTarget.blur()}
+                      className="w-full px-3 py-2 text-xs font-semibold text-slate-800 dark:text-slate-100 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 bg-white dark:bg-[#1e293b] font-mono"
+                    />
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 block">LR count / slips</span>
+                  </div>
+
+                  {/* 2. Total Weight */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+                        <Scale className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                        Total Weight
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateItem(index, 'totalWeight', item.totalWeight === 'mm' ? '' : 'mm')}
+                        className={`text-[9px] font-bold px-1.5 py-0.5 rounded cursor-pointer transition-colors ${
+                          isMm
+                            ? 'bg-emerald-600 text-white'
+                            : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-emerald-100 dark:hover:bg-emerald-950/60'
+                        }`}
+                        title="Click to set weight as mm (Minimum charge)"
+                      >
+                        mm (Min)
+                      </button>
+                    </div>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="e.g. 857 or mm"
+                        value={item.totalWeight ?? ''}
+                        onChange={(e) => handleUpdateItem(index, 'totalWeight', e.target.value)}
+                        className="w-full pl-3 pr-10 py-2 text-xs font-bold text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 bg-white dark:bg-[#1e293b] font-mono"
+                      />
+                      <span className="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none text-[11px] font-semibold text-slate-400 dark:text-slate-500">
+                        {isMm ? 'MIN' : 'KG'}
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 block">
+                      {isMm ? 'Minimum flat charge' : 'In Kilograms'}
+                    </span>
+                  </div>
+
+                  {/* 3. Rate */}
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
+                      <IndianRupee className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                      {isMm ? 'Rate / Min (₹)' : 'Rate per KG (₹)'}
+                    </label>
+                    <div className="relative">
+                      <span className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-xs font-semibold text-slate-400 dark:text-slate-500 font-mono">
+                        {currencySymbol}
+                      </span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="any"
+                        placeholder={isMm ? 'e.g. 200' : 'e.g. 10'}
+                        value={item.ratePerKg ?? ''}
+                        onChange={(e) => handleUpdateItem(index, 'ratePerKg', e.target.value)}
+                        onWheel={(e) => e.currentTarget.blur()}
+                        className="w-full pl-7 pr-3 py-2 text-xs font-bold text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 bg-white dark:bg-[#1e293b] font-mono"
+                      />
+                    </div>
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 block">
+                      {isMm ? 'Price per receipt' : 'Price per KG'}
+                    </span>
+                  </div>
+
+                  {/* 4. Amount (₹) - Auto or Direct */}
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
+                      <span className="flex items-center gap-1">
+                        <Calculator className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                        Amount (₹)
+                      </span>
+                      <span className="text-[9px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 px-1.5 py-0.2 rounded-md">
+                        ⚡ Auto
+                      </span>
+                    </label>
+                    <div className="relative">
+                      <span className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-xs font-bold text-emerald-700 dark:text-emerald-400 font-mono">
+                        {currencySymbol}
+                      </span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={item.amount ?? ''}
+                        onChange={(e) => handleUpdateItem(index, 'amount', e.target.value)}
+                        onWheel={(e) => e.currentTarget.blur()}
+                        className="w-full pl-7 pr-3 py-2 text-xs font-extrabold text-emerald-700 dark:text-emerald-300 bg-emerald-50/50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/80 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-mono"
+                      />
+                    </div>
+                    <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium mt-0.5 block">
+                      {hasWeightCalc ? 'Auto (Weight × Rate)' : hasMmCalc ? 'Auto (Receipts × Rate)' : 'Auto / Direct'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Pricing Banner per line */}
+                <div className="flex items-center justify-between px-3 py-1.5 bg-emerald-50/70 dark:bg-emerald-950/30 rounded-xl border border-emerald-100/80 dark:border-emerald-900/40 text-xs">
+                  <div className="flex items-center gap-1.5 text-emerald-900 dark:text-emerald-200 text-[11px]">
+                    {hasWeightCalc ? (
+                      <>
+                        <span className="font-semibold text-emerald-700 dark:text-emerald-400">Formula:</span>
+                        <span className="font-mono">
+                          {item.totalWeight} KG × {currencySymbol}{item.ratePerKg}/KG ={' '}
+                          <strong className="text-emerald-950 dark:text-emerald-100 font-bold">
+                            {currencySymbol}{item.amount || '0.00'}
+                          </strong>
+                        </span>
+                      </>
+                    ) : hasMmCalc ? (
+                      <>
+                        <span className="font-semibold text-emerald-700 dark:text-emerald-400">Minimum Charge:</span>
+                        <span className="font-mono">
+                          {item.totalReceipts} Slips × {currencySymbol}{item.ratePerKg} (mm) ={' '}
+                          <strong className="text-emerald-950 dark:text-emerald-100 font-bold">
+                            {currencySymbol}{item.amount || '0.00'}
+                          </strong>
+                        </span>
+                      </>
+                    ) : parseFloat(item.amount) > 0 ? (
+                      <>
+                        <span className="font-semibold text-emerald-700 dark:text-emerald-400">Line Amount:</span>
+                        <span className="font-mono">
+                          {currencySymbol}{item.amount}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-slate-500 dark:text-slate-400 text-[11px]">
+                        Enter numbers above to auto-calculate amount
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-[10px] font-medium text-emerald-700 dark:text-emerald-300 bg-emerald-100/60 dark:bg-emerald-900/50 px-2 py-0.5 rounded-md">
+                    {hasWeightCalc ? '✓ Weight × Rate' : hasMmCalc ? '✓ mm Minimum' : 'Line Total'}
+                  </span>
+                </div>
               </div>
-            </div>
-          );
-        })()}
+            );
+          })}
+
+          {/* Add Line Action Button */}
+          <div className="flex items-center justify-between pt-1">
+            <button
+              type="button"
+              onClick={() => handleAddItem('mm')}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 border border-emerald-200/80 dark:border-emerald-800/60 rounded-xl transition-all cursor-pointer shadow-2xs"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>+ Add Line (e.g. Minimum Charge / Row 2)</span>
+            </button>
+
+            <span className="text-xs font-mono font-bold text-slate-800 dark:text-slate-100">
+              Total: {formatCurrency(subtotal, currencySymbol)}
+            </span>
+          </div>
+
+          {/* Print Column Toggle */}
+          <div className="flex items-center justify-end pt-0.5">
+            <label className="text-[11px] font-medium text-slate-600 dark:text-slate-400 flex items-center gap-1.5 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={bill.printWeightRate !== false}
+                onChange={(e) => handleChange('printWeightRate', e.target.checked)}
+                className="w-3.5 h-3.5 text-emerald-600 rounded border-slate-300 dark:border-slate-700 dark:bg-slate-800 focus:ring-emerald-500 cursor-pointer"
+              />
+              <span>Print Weight & Rate on Bill</span>
+            </label>
+          </div>
+        </div>
 
         {/* Billing Date, Bill No. & Place */}
         <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-3">
@@ -448,6 +568,21 @@ export default function BillForm({
                 value={bill.place !== undefined ? bill.place : 'Mumbai'}
                 onChange={(e) => handleChange('place', e.target.value)}
                 className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 bg-white dark:bg-[#1e293b] text-slate-900 dark:text-slate-100 font-medium"
+              />
+            </div>
+
+            {/* Transport Route / Title */}
+            <div className="col-span-2 sm:col-span-4">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[11px] font-medium text-slate-600 dark:text-slate-400">Transport Route / Title</span>
+                <span className="text-[10px] text-slate-400 dark:text-slate-500">e.g. SURAT TO MUMBAI (centered & underlined)</span>
+              </div>
+              <input
+                type="text"
+                placeholder="SURAT TO MUMBAI"
+                value={bill.route !== undefined ? bill.route : 'SURAT TO MUMBAI'}
+                onChange={(e) => handleChange('route', e.target.value)}
+                className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 bg-white dark:bg-[#1e293b] text-slate-900 dark:text-slate-100 font-bold uppercase tracking-wider"
               />
             </div>
           </div>

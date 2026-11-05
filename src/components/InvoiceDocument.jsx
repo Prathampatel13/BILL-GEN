@@ -41,6 +41,15 @@ export default function InvoiceDocument({
           </div>
         </div>
 
+        {/* Route / Consignment Title if provided (e.g. SURAT TO MUMBAI) */}
+        {bill.route && (
+          <div className="text-center pt-2 pb-0.5">
+            <span className="font-black text-xs sm:text-sm tracking-wider uppercase underline">
+              {bill.route}
+            </span>
+          </div>
+        )}
+
         {/* Bill Metadata: M/s., Bill No., Date, Place (All shown below M/s.) */}
         <div className="py-2.5 text-xs text-black font-semibold space-y-1">
           {/* 1. Customer Name */}
@@ -94,27 +103,38 @@ export default function InvoiceDocument({
 
           {/* 2. Items Rows */}
           {items.map((item, idx) => {
-            const weight = parseFloat(item.totalWeight);
-            const rate = parseFloat(item.ratePerKg);
-            const hasWeightRate = !isNaN(weight) && !isNaN(rate) && weight > 0 && rate > 0 && bill.printWeightRate !== false;
-            const itemTotal = hasWeightRate
-              ? (weight * rate)
-              : (parseFloat(item.amount) || 0);
+            const weightNum = parseFloat(item.totalWeight);
+            const rateNum = parseFloat(item.ratePerKg);
+            const rcNum = parseFloat(item.totalReceipts);
+            const isMmWeight = /^(mm|min|minimum)$/i.test(String(item.totalWeight || '').trim());
+            const hasWeightRate = !isNaN(weightNum) && !isNaN(rateNum) && weightNum > 0 && rateNum > 0;
+            const hasReceiptRate = isMmWeight && !isNaN(rcNum) && !isNaN(rateNum) && rcNum > 0 && rateNum > 0;
 
-            // Dynamic based on Bill Date and Due Date (reflects only when user selects date!)
+            let itemTotal = 0;
+            if (hasWeightRate) {
+              itemTotal = weightNum * rateNum;
+            } else if (hasReceiptRate) {
+              itemTotal = rcNum * rateNum;
+            } else {
+              itemTotal = parseFloat(item.amount) || 0;
+            }
+
+            // In the photo, the Date range (01.08.26 To 31.08.26) only appears on the first row (idx === 0)
             const startDate = bill.date ? formatReceiptDate(bill.date) : '';
             const endDate = bill.dueDate ? formatReceiptDate(bill.dueDate) : '';
             let formattedDateRange = '';
-            if (startDate && endDate && startDate !== endDate) {
-              formattedDateRange = `${startDate}\nTo\n${endDate}`;
-            } else if (startDate) {
-              formattedDateRange = startDate;
+            if (idx === 0) {
+              if (startDate && endDate && startDate !== endDate) {
+                formattedDateRange = `${startDate}\nTo\n${endDate}`;
+              } else if (startDate) {
+                formattedDateRange = startDate;
+              }
             } else {
-              formattedDateRange = '';
+              formattedDateRange = item.dateRange || '';
             }
 
             return (
-              <div key={item.id || idx} className="grid grid-cols-12 font-bold text-black text-xs px-3 py-3">
+              <div key={item.id || idx} className="grid grid-cols-12 font-bold text-black text-xs px-3 py-2.5">
                 <div className="col-span-3 text-left whitespace-pre-line leading-relaxed font-mono">
                   {formattedDateRange}
                 </div>
@@ -122,10 +142,10 @@ export default function InvoiceDocument({
                   {item.totalReceipts !== undefined && item.totalReceipts !== '' ? item.totalReceipts : ''}
                 </div>
                 <div className="col-span-3 text-center font-mono">
-                  {hasWeightRate ? weight : ''}
+                  {item.totalWeight !== undefined && item.totalWeight !== '' ? item.totalWeight : ''}
                 </div>
                 <div className="col-span-2 text-center font-mono">
-                  {hasWeightRate ? rate : ''}
+                  {item.ratePerKg !== undefined && item.ratePerKg !== '' ? item.ratePerKg : ''}
                 </div>
                 <div className="col-span-2 text-right font-mono font-bold text-sm">
                   {itemTotal > 0 ? (itemTotal % 1 === 0 ? itemTotal.toFixed(0) : itemTotal.toFixed(2)) : ''}

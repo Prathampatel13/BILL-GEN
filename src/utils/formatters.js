@@ -163,8 +163,14 @@ export function calculateBillTotals(bill) {
     let itemAmt = 0;
     const w = parseFloat(item.totalWeight);
     const r = parseFloat(item.ratePerKg);
+    const rc = parseFloat(item.totalReceipts);
+    const isMm = /^(mm|min|minimum)$/i.test(String(item.totalWeight || '').trim());
+
     if (!isNaN(w) && !isNaN(r) && w > 0 && r > 0) {
       itemAmt = w * r;
+    } else if (isMm && !isNaN(rc) && !isNaN(r) && rc > 0 && r > 0) {
+      // Minimum charge line: Receipts * Rate
+      itemAmt = rc * r;
     } else {
       itemAmt = parseFloat(item.amount) || 0;
     }
