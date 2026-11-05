@@ -103,9 +103,6 @@ export default function App() {
     const defaultMake = 'Freight Transport';
     const defaultItem = {
       id: `item-${Date.now()}-1`,
-      startDate: '',
-      endDate: '',
-      dateRange: '',
       make: defaultMake,
       modelOrItem: 'Parcel Cargo',
       serialOrRef: '',

@@ -123,28 +123,11 @@ export default function InvoiceDocument({
               itemTotal = parseFloat(item.amount) || 0;
             }
 
-            // Date range: check startDate and endDate first, then fallback to dateRange or bill dates for line 1
+            // Consignment date range: line 1 displays bill date & due date range, subsequent lines remain blank
+            const startDate = bill.date ? formatReceiptDate(bill.date) : '';
+            const endDate = bill.dueDate ? formatReceiptDate(bill.dueDate) : '';
             let formattedDateRange = '';
-            const sDate = item.startDate ? formatReceiptDate(item.startDate) : '';
-            const eDate = item.endDate ? formatReceiptDate(item.endDate) : '';
-
-            if (sDate && eDate && sDate !== eDate) {
-              formattedDateRange = `${sDate}\nTo\n${eDate}`;
-            } else if (sDate) {
-              formattedDateRange = sDate;
-            } else if (eDate) {
-              formattedDateRange = eDate;
-            } else if (item.dateRange && item.dateRange.trim()) {
-              const raw = item.dateRange.trim();
-              if (raw.toLowerCase().includes(' to ')) {
-                const parts = raw.split(/\s+to\s+/i);
-                formattedDateRange = `${parts[0]}\nTo\n${parts.slice(1).join(' To ')}`;
-              } else {
-                formattedDateRange = raw;
-              }
-            } else if (idx === 0) {
-              const startDate = bill.date ? formatReceiptDate(bill.date) : '';
-              const endDate = bill.dueDate ? formatReceiptDate(bill.dueDate) : '';
+            if (idx === 0) {
               if (startDate && endDate && startDate !== endDate) {
                 formattedDateRange = `${startDate}\nTo\n${endDate}`;
               } else if (startDate) {
