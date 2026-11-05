@@ -3,8 +3,8 @@ import { Calendar, X } from 'lucide-react';
 import { isoToDMY, dmyToISO } from '../utils/formatters';
 
 /**
- * Custom Date Input enforcing strict dd/mm/yyyy format.
- * Prevents browser-default mm/dd/yyyy while keeping native calendar picker functionality.
+ * Custom Date Input enforcing clear dd/mm/yyyy format and easy modification.
+ * Supports manual typing, calendar picker, auto-formatting, and blur validation.
  */
 export default function DateInput({
   value,
@@ -17,43 +17,48 @@ export default function DateInput({
   const [displayVal, setDisplayVal] = useState(() => isoToDMY(value));
   const hiddenDateRef = useRef(null);
 
-  // Synchronize state when parent changes (e.g. clicking 'Today', '+7d', '+15d', or clearing to '')
+  // Synchronize state when value changes from parent (e.g. clicking 'Today' or loading bill)
   if (value !== prevValue) {
     setPrevValue(value);
     setDisplayVal(isoToDMY(value));
   }
 
   const handleTextChange = (e) => {
-    let input = e.target.value;
-    // Allow digits and slashes only
-    input = input.replace(/[^\d/]/g, '');
+    const input = e.target.value;
+    setDisplayVal(input);
 
-    // If user cleared the input completely, propagate empty string immediately!
+    // If completely cleared
     if (input.trim() === '') {
-      setDisplayVal('');
       onChange('');
       if (hiddenDateRef.current) hiddenDateRef.current.value = '';
       return;
     }
 
-    // Auto-insert slash after day (2 digits) and month (5 chars)
-    const isDeleting = e.nativeEvent && e.nativeEvent.inputType === 'deleteContentBackward';
-    if (!isDeleting) {
-      if (input.length === 2 && !input.includes('/')) {
-        input = input + '/';
-      } else if (input.length === 5 && input.split('/').length === 2) {
-        input = input + '/';
+    // Try converting to ISO if valid
+    const clean = input.trim().replace(/[-.]/g, '/');
+    const parts = clean.split('/');
+    if (parts.length === 3 && parts[2].length === 4 && parts[0].length >= 1 && parts[1].length >= 1) {
+      const iso = dmyToISO(clean);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+        onChange(iso);
       }
     }
+  };
 
-    input = input.slice(0, 10);
-    setDisplayVal(input);
-
-    // If complete valid dd/mm/yyyy is entered, trigger onChange with ISO YYYY-MM-DD
-    if (/^\d{2}\/\d{2}\/\d{4}$/.test(input)) {
-      const [d, m, y] = input.split('/');
-      const iso = `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+  const handleBlur = () => {
+    if (!displayVal.trim()) {
+      setDisplayVal('');
+      onChange('');
+      return;
+    }
+    const clean = displayVal.trim().replace(/[-.]/g, '/');
+    const iso = dmyToISO(clean);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+      setDisplayVal(isoToDMY(iso));
       onChange(iso);
+    } else {
+      // Restore valid value if input was invalid
+      setDisplayVal(isoToDMY(value));
     }
   };
 
@@ -95,12 +100,12 @@ export default function DateInput({
     <div className="relative flex items-center w-full">
       <input
         type="text"
-        inputMode="numeric"
         placeholder={placeholder}
         value={displayVal}
         onChange={handleTextChange}
+        onBlur={handleBlur}
         className={`${className} ${displayVal ? 'pr-14' : 'pr-9'} font-mono`}
-        maxLength={10}
+        maxLength={12}
         required={required}
       />
 
@@ -131,7 +136,7 @@ export default function DateInput({
       <input
         ref={hiddenDateRef}
         type="date"
-        value={dmyToISO(value)}
+        value={value ? dmyToISO(value) : ''}
         onChange={handlePickerChange}
         className="sr-only opacity-0 pointer-events-none absolute"
         tabIndex={-1}

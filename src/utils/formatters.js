@@ -12,12 +12,18 @@ export function isoToDMY(val) {
   if (!val) return '';
   const trimmed = String(val).trim();
   if (/^\d{2}\/\d{2}\/\d{4}$/.test(trimmed)) return trimmed;
-  if (/^\d{2}[-.]\d{2}[-.]\d{4}$/.test(trimmed)) {
-    return trimmed.replace(/[-.]/g, '/');
-  }
-  const parts = trimmed.split('-');
-  if (parts.length === 3 && parts[0].length === 4) {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    const parts = trimmed.split('-');
     return `${parts[2].padStart(2, '0')}/${parts[1].padStart(2, '0')}/${parts[0]}`;
+  }
+  const clean = trimmed.replace(/[-.]/g, '/');
+  const parts = clean.split('/');
+  if (parts.length === 3) {
+    let [d, m, y] = parts;
+    if (y.length === 2) y = '20' + y;
+    if (y.length === 4) {
+      return `${d.padStart(2, '0')}/${m.padStart(2, '0')}/${y}`;
+    }
   }
   return trimmed;
 }
@@ -26,9 +32,14 @@ export function dmyToISO(val) {
   if (!val) return '';
   const trimmed = String(val).trim();
   if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
-  const parts = trimmed.split('/');
-  if (parts.length === 3 && parts[2].length === 4) {
-    return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+  const clean = trimmed.replace(/[-.]/g, '/');
+  const parts = clean.split('/');
+  if (parts.length === 3) {
+    let [d, m, y] = parts;
+    if (y.length === 2) y = '20' + y;
+    if (y.length === 4 && d.length >= 1 && m.length >= 1) {
+      return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+    }
   }
   return trimmed;
 }

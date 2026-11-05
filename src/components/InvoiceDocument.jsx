@@ -41,41 +41,43 @@ export default function InvoiceDocument({
           </div>
         </div>
 
-        {/* Bill Metadata: Billed To (Left) & Bill Number / Date / Place (Right) */}
-        <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 py-3 text-xs text-black font-semibold">
-          {/* Left: Customer Info */}
-          <div className="sm:col-span-7 space-y-1">
-            <div className="flex">
-              <span className="w-16 shrink-0 text-black">M/s.</span>
-              <span className="mr-1.5">:</span>
-              <span className="font-bold text-sm uppercase">{bill.customerName || 'Walk-in Customer'}</span>
-            </div>
-            {bill.customerGstin && (
-              <div className="flex">
-                <span className="w-16 shrink-0 text-black">GSTIN</span>
-                <span className="mr-1.5">:</span>
-                <span className="font-mono font-bold tracking-wider">{bill.customerGstin}</span>
-              </div>
-            )}
+        {/* Bill Metadata: M/s., Bill No., Date, Place (All shown below M/s.) */}
+        <div className="py-2.5 text-xs text-black font-semibold space-y-1">
+          {/* 1. Customer Name */}
+          <div className="flex items-center">
+            <span className="w-20 shrink-0 text-black font-bold">M/s.</span>
+            <span className="mr-2 font-bold">:</span>
+            <span className="font-bold text-sm uppercase">{bill.customerName || 'WALK-IN CUSTOMER'}</span>
           </div>
 
-          {/* Right: Bill No, Date, Place */}
-          <div className="sm:col-span-5 space-y-1 sm:text-right">
-            <div className="flex sm:justify-end">
-              <span className="w-20 sm:w-auto sm:mr-2 text-black">Bill No.</span>
-              <span className="mr-1.5 sm:mr-2">:</span>
-              <span className="font-mono font-bold text-sm">{bill.invoiceNumber || ''}</span>
+          {/* Customer GSTIN if present */}
+          {bill.customerGstin && (
+            <div className="flex items-center">
+              <span className="w-20 shrink-0 text-black font-bold">GSTIN</span>
+              <span className="mr-2 font-bold">:</span>
+              <span className="font-mono font-bold tracking-wider">{bill.customerGstin}</span>
             </div>
-            <div className="flex sm:justify-end">
-              <span className="w-20 sm:w-auto sm:mr-2 text-black">Date</span>
-              <span className="mr-1.5 sm:mr-2">:</span>
-              <span className="font-mono">{bill.date ? formatDate(bill.date) : ''}</span>
-            </div>
-            <div className="flex sm:justify-end">
-              <span className="w-20 sm:w-auto sm:mr-2 text-black">Place</span>
-              <span className="mr-1.5 sm:mr-2">:</span>
-              <span className="font-bold">{businessProfile.city ? businessProfile.city.split(',')[0].trim() : 'Mumbai'}</span>
-            </div>
+          )}
+
+          {/* 2. Bill No. */}
+          <div className="flex items-center">
+            <span className="w-20 shrink-0 text-black font-bold">Bill No.</span>
+            <span className="mr-2 font-bold">:</span>
+            <span className="font-mono font-bold text-sm">{bill.invoiceNumber || ''}</span>
+          </div>
+
+          {/* 3. Date */}
+          <div className="flex items-center">
+            <span className="w-20 shrink-0 text-black font-bold">Date</span>
+            <span className="mr-2 font-bold">:</span>
+            <span className="font-mono font-bold">{bill.date ? formatDate(bill.date) : ''}</span>
+          </div>
+
+          {/* 4. Place */}
+          <div className="flex items-center">
+            <span className="w-20 shrink-0 text-black font-bold">Place</span>
+            <span className="mr-2 font-bold">:</span>
+            <span className="font-bold">{bill.place || (businessProfile.city ? businessProfile.city.split(',')[0].trim() : 'Mumbai')}</span>
           </div>
         </div>
 

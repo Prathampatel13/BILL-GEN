@@ -30,7 +30,7 @@ import {
   saveCustomer as storeCustomer,
   deleteCustomer as removeStoredCustomer
 } from './utils/storage';
-import { generateInvoiceNumber, calculateBillTotals } from './utils/formatters';
+import { generateInvoiceNumber, calculateBillTotals, getTodayDateString } from './utils/formatters';
 import { downloadInvoiceAsPDF } from './utils/pdfGenerator';
 
 const CURRENT_YEAR = new Date().getFullYear();
@@ -116,7 +116,7 @@ export default function App() {
     };
     return {
       id: `bill-${Date.now()}`,
-      invoiceNumber: '',
+      invoiceNumber: generateInvoiceNumber(getNextInvoiceSequence(bills || [])),
       items: [defaultItem],
       make: defaultMake,
       modelOrItem: 'Parcel Cargo',
@@ -127,8 +127,9 @@ export default function App() {
       amount: '',
       printWeightRate: true,
       quantity: 1,
-      date: '',
+      date: getTodayDateString(),
       dueDate: '',
+      place: 'Mumbai',
       discountType: 'percent',
       discountValue: 0,
       taxRate: 0,
