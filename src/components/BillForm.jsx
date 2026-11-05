@@ -424,47 +424,6 @@ export default function BillForm({
                     </span>
                   </div>
                 </div>
-
-                {/* Pricing Banner per line */}
-                <div className="flex items-center justify-between px-3 py-1.5 bg-emerald-50/70 dark:bg-emerald-950/30 rounded-xl border border-emerald-100/80 dark:border-emerald-900/40 text-xs">
-                  <div className="flex items-center gap-1.5 text-emerald-900 dark:text-emerald-200 text-[11px]">
-                    {hasWeightCalc ? (
-                      <>
-                        <span className="font-semibold text-emerald-700 dark:text-emerald-400">Formula:</span>
-                        <span className="font-mono">
-                          {item.totalWeight} KG × {currencySymbol}{item.ratePerKg}/KG ={' '}
-                          <strong className="text-emerald-950 dark:text-emerald-100 font-bold">
-                            {currencySymbol}{item.amount || '0.00'}
-                          </strong>
-                        </span>
-                      </>
-                    ) : hasMmCalc ? (
-                      <>
-                        <span className="font-semibold text-emerald-700 dark:text-emerald-400">Minimum Charge:</span>
-                        <span className="font-mono">
-                          {item.totalReceipts} Slips × {currencySymbol}{item.ratePerKg} (mm) ={' '}
-                          <strong className="text-emerald-950 dark:text-emerald-100 font-bold">
-                            {currencySymbol}{item.amount || '0.00'}
-                          </strong>
-                        </span>
-                      </>
-                    ) : parseFloat(item.amount) > 0 ? (
-                      <>
-                        <span className="font-semibold text-emerald-700 dark:text-emerald-400">Line Amount:</span>
-                        <span className="font-mono">
-                          {currencySymbol}{item.amount}
-                        </span>
-                      </>
-                    ) : (
-                      <span className="text-slate-500 dark:text-slate-400 text-[11px]">
-                        Enter numbers above to auto-calculate amount
-                      </span>
-                    )}
-                  </div>
-                  <span className="text-[10px] font-medium text-emerald-700 dark:text-emerald-300 bg-emerald-100/60 dark:bg-emerald-900/50 px-2 py-0.5 rounded-md">
-                    {hasWeightCalc ? '✓ Weight × Rate' : hasMmCalc ? '✓ mm Minimum' : 'Line Total'}
-                  </span>
-                </div>
               </div>
             );
           })}
