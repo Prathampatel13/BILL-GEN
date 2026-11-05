@@ -119,6 +119,8 @@ export default function BillForm({
   const handleAddItem = (defaultWeight = 'mm') => {
     const newItem = {
       id: `item-${Date.now()}-${items.length + 1}`,
+      startDate: '',
+      endDate: '',
       dateRange: '',
       make: 'Freight Transport',
       modelOrItem: 'Parcel Cargo',
@@ -469,40 +471,90 @@ export default function BillForm({
                   </span>
                 </div>
 
-                {/* Individual Date / Period for Table Column */}
+                {/* Individual Date / Period for Table Column (using DateInput matching Image 1) */}
                 <div className="pt-2 border-t border-slate-200/50 dark:border-slate-800/80">
-                  <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center justify-between mb-1.5">
                     <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1">
                       <Calendar className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                       <span>Table Date / Period</span>
                     </label>
-                    {index === 0 && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const s = bill.date ? formatReceiptDate(bill.date) : '';
-                          const e = bill.dueDate ? formatReceiptDate(bill.dueDate) : '';
-                          const syn = (s && e && s !== e) ? `${s} To ${e}` : s;
-                          handleUpdateItem(index, 'dateRange', syn);
-                        }}
-                        className="text-[10px] text-emerald-600 dark:text-emerald-400 hover:underline font-medium cursor-pointer"
-                        title="Copy from Bill Date & Due Date"
-                      >
-                        Sync Date
-                      </button>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {index === 0 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleUpdateItem(index, 'startDate', bill.date || '');
+                            handleUpdateItem(index, 'endDate', bill.dueDate || '');
+                          }}
+                          className="text-[10px] text-emerald-600 dark:text-emerald-400 hover:underline font-medium cursor-pointer"
+                          title="Copy from Bill Date & Due Date"
+                        >
+                          Sync Date
+                        </button>
+                      )}
+                      {index > 0 && !item.endDate && (
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateItem(index, 'endDate', item.startDate || bill.date || '')}
+                          className="text-[10px] text-emerald-600 dark:text-emerald-400 hover:underline font-medium cursor-pointer"
+                        >
+                          + Add Range
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  <input
-                    type="text"
-                    placeholder={index === 0 ? "e.g. 01.08.26 To 31.08.26 or 05/11/2026" : "Leave blank or enter date for this line"}
-                    value={item.dateRange ?? ''}
-                    onChange={(e) => handleUpdateItem(index, 'dateRange', e.target.value)}
-                    className="w-full px-3 py-1.5 text-xs font-semibold text-slate-800 dark:text-slate-100 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 bg-white dark:bg-[#1e293b] font-mono"
-                  />
-                  <span className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 block">
+
+                  {index === 0 || item.endDate ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div>
+                        <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 block mb-1">
+                          {index === 0 ? 'From Date' : 'Date'}
+                        </span>
+                        <DateInput
+                          value={item.startDate || ''}
+                          onChange={(val) => handleUpdateItem(index, 'startDate', val)}
+                          placeholder="dd/mm/yyyy"
+                          className="w-full px-3 py-1.5 text-xs border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 bg-white dark:bg-[#1e293b] text-slate-900 dark:text-slate-100 font-medium"
+                        />
+                      </div>
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400">
+                            To Date <span className="text-[9px] text-slate-400">(Optional)</span>
+                          </span>
+                          {index > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateItem(index, 'endDate', '')}
+                              className="text-[10px] text-rose-500 hover:underline cursor-pointer"
+                            >
+                              Remove
+                            </button>
+                          )}
+                        </div>
+                        <DateInput
+                          value={item.endDate || ''}
+                          onChange={(val) => handleUpdateItem(index, 'endDate', val)}
+                          placeholder="dd/mm/yyyy"
+                          className="w-full px-3 py-1.5 text-xs border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 bg-white dark:bg-[#1e293b] text-slate-900 dark:text-slate-100 font-medium"
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <DateInput
+                        value={item.startDate || ''}
+                        onChange={(val) => handleUpdateItem(index, 'startDate', val)}
+                        placeholder="dd/mm/yyyy"
+                        className="w-full px-3 py-1.5 text-xs border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 bg-white dark:bg-[#1e293b] text-slate-900 dark:text-slate-100 font-medium"
+                      />
+                    </div>
+                  )}
+
+                  <span className="text-[10px] text-slate-400 dark:text-slate-500 mt-1 block">
                     {index === 0
-                      ? 'Custom date for DATE column in invoice table (independent of Bill Date above)'
-                      : 'Leave blank to match receipt photo, or type date'}
+                      ? 'Select date or range to display under DATE column (or leave empty to use Bill Date)'
+                      : 'Leave blank to match receipt photo, or select date with calendar picker'}
                   </span>
                 </div>
               </div>

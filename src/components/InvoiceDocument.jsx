@@ -123,15 +123,24 @@ export default function InvoiceDocument({
               itemTotal = parseFloat(item.amount) || 0;
             }
 
-            // Date range: if custom dateRange is entered for this line, display it; otherwise line 1 defaults to bill dates
+            // Date range: check startDate and endDate first, then fallback to dateRange or bill dates for line 1
             let formattedDateRange = '';
-            const customDate = (item.dateRange !== undefined && item.dateRange !== null) ? String(item.dateRange).trim() : '';
-            if (customDate) {
-              if (customDate.toLowerCase().includes(' to ')) {
-                const parts = customDate.split(/\s+to\s+/i);
+            const sDate = item.startDate ? formatReceiptDate(item.startDate) : '';
+            const eDate = item.endDate ? formatReceiptDate(item.endDate) : '';
+
+            if (sDate && eDate && sDate !== eDate) {
+              formattedDateRange = `${sDate}\nTo\n${eDate}`;
+            } else if (sDate) {
+              formattedDateRange = sDate;
+            } else if (eDate) {
+              formattedDateRange = eDate;
+            } else if (item.dateRange && item.dateRange.trim()) {
+              const raw = item.dateRange.trim();
+              if (raw.toLowerCase().includes(' to ')) {
+                const parts = raw.split(/\s+to\s+/i);
                 formattedDateRange = `${parts[0]}\nTo\n${parts.slice(1).join(' To ')}`;
               } else {
-                formattedDateRange = customDate;
+                formattedDateRange = raw;
               }
             } else if (idx === 0) {
               const startDate = bill.date ? formatReceiptDate(bill.date) : '';
