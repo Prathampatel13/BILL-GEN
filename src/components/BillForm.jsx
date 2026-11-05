@@ -135,7 +135,7 @@ export default function BillForm({
   };
 
   const handleRemoveItem = (index) => {
-    if (items.length <= 1) return;
+    if (index === 0 || items.length <= 1) return; // Main Freight (index 0) cannot be removed or deleted
     const updated = items.filter((_, idx) => idx !== index);
     const first = updated[0] || {};
     onChange({
@@ -300,7 +300,7 @@ export default function BillForm({
                     )}
                   </div>
 
-                  {items.length > 1 && (
+                  {index > 0 && (
                     <button
                       type="button"
                       onClick={() => handleRemoveItem(index)}
@@ -466,6 +466,43 @@ export default function BillForm({
                   </div>
                   <span className="text-[10px] font-medium text-emerald-700 dark:text-emerald-300 bg-emerald-100/60 dark:bg-emerald-900/50 px-2 py-0.5 rounded-md">
                     {hasWeightCalc ? '✓ Weight × Rate' : hasMmCalc ? '✓ mm Minimum' : 'Line Total'}
+                  </span>
+                </div>
+
+                {/* Individual Date / Period for Table Column */}
+                <div className="pt-2 border-t border-slate-200/50 dark:border-slate-800/80">
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+                      <Calendar className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                      <span>Table Date / Period</span>
+                    </label>
+                    {index === 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const s = bill.date ? formatReceiptDate(bill.date) : '';
+                          const e = bill.dueDate ? formatReceiptDate(bill.dueDate) : '';
+                          const syn = (s && e && s !== e) ? `${s} To ${e}` : s;
+                          handleUpdateItem(index, 'dateRange', syn);
+                        }}
+                        className="text-[10px] text-emerald-600 dark:text-emerald-400 hover:underline font-medium cursor-pointer"
+                        title="Copy from Bill Date & Due Date"
+                      >
+                        Sync Date
+                      </button>
+                    )}
+                  </div>
+                  <input
+                    type="text"
+                    placeholder={index === 0 ? "e.g. 01.08.26 To 31.08.26 or 05/11/2026" : "Leave blank or enter date for this line"}
+                    value={item.dateRange ?? ''}
+                    onChange={(e) => handleUpdateItem(index, 'dateRange', e.target.value)}
+                    className="w-full px-3 py-1.5 text-xs font-semibold text-slate-800 dark:text-slate-100 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 bg-white dark:bg-[#1e293b] font-mono"
+                  />
+                  <span className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 block">
+                    {index === 0
+                      ? 'Custom date for DATE column in invoice table (independent of Bill Date above)'
+                      : 'Leave blank to match receipt photo, or type date'}
                   </span>
                 </div>
               </div>
