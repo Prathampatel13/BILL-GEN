@@ -123,9 +123,11 @@ export default function InvoiceDocument({
               itemTotal = parseFloat(item.amount) || 0;
             }
 
-            // Consignment date range: line 1 displays bill date & due date range, subsequent lines remain blank
-            const startDate = bill.date ? formatReceiptDate(bill.date) : '';
-            const endDate = bill.dueDate ? formatReceiptDate(bill.dueDate) : '';
+            // Consignment date range in table: chosen individually via Table Date (From / To)
+            const rawStart = bill.tableStartDate !== undefined ? bill.tableStartDate : bill.date;
+            const rawEnd = bill.tableEndDate !== undefined ? bill.tableEndDate : bill.dueDate;
+            const startDate = rawStart ? formatReceiptDate(rawStart) : '';
+            const endDate = rawEnd ? formatReceiptDate(rawEnd) : '';
             let formattedDateRange = '';
             if (idx === 0) {
               if (startDate && endDate && startDate !== endDate) {

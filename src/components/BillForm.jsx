@@ -501,75 +501,127 @@ export default function BillForm({
 
         {/* Billing Date, Bill No. & Place */}
         <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-3">
-          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-            <Calendar className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-            Bill Details & Reference
-          </label>
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+              <Calendar className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+              Bill Details & Reference
+            </label>
+            <span className="text-[10px] text-slate-400 dark:text-slate-500">Choose dates individually</span>
+          </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {/* Bill Date */}
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-[11px] font-medium text-slate-600 dark:text-slate-400">Bill Date</span>
-                <button
-                  type="button"
-                  onClick={() => handleChange('date', getTodayDateString())}
-                  className="text-[10px] text-emerald-600 dark:text-emerald-400 hover:underline font-medium cursor-pointer"
-                >
-                  Today
-                </button>
+          <div className="space-y-3">
+            {/* 1. Date Fields: Choose every date individually with calendar pickers */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {/* Bill Date (Top Right on Invoice) */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">Bill Date (Top Right)</span>
+                  <button
+                    type="button"
+                    onClick={() => handleChange('date', getTodayDateString())}
+                    className="text-[10px] text-emerald-600 dark:text-emerald-400 hover:underline font-medium cursor-pointer"
+                  >
+                    Today
+                  </button>
+                </div>
+                <DateInput
+                  value={bill.date || ''}
+                  onChange={(val) => handleChange('date', val)}
+                  className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 bg-white dark:bg-[#1e293b] text-slate-900 dark:text-slate-100 font-medium"
+                />
+                <span className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 block">
+                  Printed at top right Date :
+                </span>
               </div>
-              <DateInput
-                value={bill.date || ''}
-                onChange={(val) => handleChange('date', val)}
-                className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 bg-white dark:bg-[#1e293b] text-slate-900 dark:text-slate-100 font-medium"
-              />
+
+              {/* Table Date From (First line in table DATE column) */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">Table Date (From)</span>
+                  <button
+                    type="button"
+                    onClick={() => handleChange('tableStartDate', getTodayDateString())}
+                    className="text-[10px] text-emerald-600 dark:text-emerald-400 hover:underline font-medium cursor-pointer"
+                  >
+                    Today
+                  </button>
+                </div>
+                <DateInput
+                  value={bill.tableStartDate !== undefined ? bill.tableStartDate : (bill.date || '')}
+                  onChange={(val) => handleChange('tableStartDate', val)}
+                  className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 bg-white dark:bg-[#1e293b] text-slate-900 dark:text-slate-100 font-medium"
+                />
+                <span className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 block">
+                  First date in table DATE column
+                </span>
+              </div>
+
+              {/* Table Date To (Second line in table DATE column) */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">Table Date (To)</span>
+                  {(bill.tableEndDate || bill.dueDate) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleChange('tableEndDate', '');
+                        handleChange('dueDate', '');
+                      }}
+                      className="text-[10px] text-rose-500 hover:underline font-medium cursor-pointer"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+                <DateInput
+                  value={bill.tableEndDate !== undefined ? bill.tableEndDate : (bill.dueDate || '')}
+                  onChange={(val) => {
+                    handleChange('tableEndDate', val);
+                    handleChange('dueDate', val);
+                  }}
+                  className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 bg-white dark:bg-[#1e293b] text-slate-900 dark:text-slate-100 font-medium"
+                />
+                <span className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 block">
+                  End date after "To" in table
+                </span>
+              </div>
             </div>
 
-            {/* Due Date */}
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-[11px] font-medium text-slate-600 dark:text-slate-400">Due Date</span>
+            {/* 2. Bill Number & Place */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Bill / Invoice Number */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[11px] font-medium text-slate-600 dark:text-slate-400">Bill No.</span>
+                  <Hash className="w-3 h-3 text-slate-400 dark:text-slate-500" />
+                </div>
+                <input
+                  type="text"
+                  placeholder="Enter Bill No."
+                  value={bill.invoiceNumber || ''}
+                  onChange={(e) => handleChange('invoiceNumber', e.target.value)}
+                  className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 bg-white dark:bg-[#1e293b] text-slate-900 dark:text-slate-100 font-mono font-medium"
+                />
               </div>
-              <DateInput
-                value={bill.dueDate || ''}
-                onChange={(val) => handleChange('dueDate', val)}
-                className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 bg-white dark:bg-[#1e293b] text-slate-900 dark:text-slate-100 font-medium"
-              />
-            </div>
 
-            {/* Bill / Invoice Number */}
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-[11px] font-medium text-slate-600 dark:text-slate-400">Bill No.</span>
-                <Hash className="w-3 h-3 text-slate-400 dark:text-slate-500" />
+              {/* Place */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[11px] font-medium text-slate-600 dark:text-slate-400">Place</span>
+                  <MapPin className="w-3 h-3 text-slate-400 dark:text-slate-500" />
+                </div>
+                <input
+                  type="text"
+                  placeholder="Mumbai"
+                  value={bill.place !== undefined ? bill.place : 'Mumbai'}
+                  onChange={(e) => handleChange('place', e.target.value)}
+                  className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 bg-white dark:bg-[#1e293b] text-slate-900 dark:text-slate-100 font-medium"
+                />
               </div>
-              <input
-                type="text"
-                placeholder="Enter Bill No."
-                value={bill.invoiceNumber || ''}
-                onChange={(e) => handleChange('invoiceNumber', e.target.value)}
-                className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 bg-white dark:bg-[#1e293b] text-slate-900 dark:text-slate-100 font-mono font-medium"
-              />
-            </div>
-
-            {/* Place */}
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-[11px] font-medium text-slate-600 dark:text-slate-400">Place</span>
-                <MapPin className="w-3 h-3 text-slate-400 dark:text-slate-500" />
-              </div>
-              <input
-                type="text"
-                placeholder="Mumbai"
-                value={bill.place !== undefined ? bill.place : 'Mumbai'}
-                onChange={(e) => handleChange('place', e.target.value)}
-                className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 bg-white dark:bg-[#1e293b] text-slate-900 dark:text-slate-100 font-medium"
-              />
             </div>
 
             {/* Transport Route / Title */}
-            <div className="col-span-2 sm:col-span-4">
+            <div>
               <div className="flex items-center justify-between mb-1">
                 <span className="text-[11px] font-medium text-slate-600 dark:text-slate-400">Transport Route / Title</span>
                 <span className="text-[10px] text-slate-400 dark:text-slate-500">e.g. SURAT TO MUMBAI (centered & underlined)</span>
